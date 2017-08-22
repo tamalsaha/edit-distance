@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	lev "github.com/texttheater/golang-levenshtein/levenshtein"
+	"golang.org/x/tools/go/gcimporter15/testdata"
 	"io"
 	"os"
 	"reflect"
@@ -11,11 +13,6 @@ import (
 func ed(s, t []interface{}) {
 	m := len(s)
 	n := len(t)
-
-	op := make([][]rune, m)
-	for i := 0; i < m; i++ {
-		op[i] = make([]rune, n)
-	}
 
 	d := make([][]int, m+1)
 	for i := 0; i <= m; i++ {
@@ -33,39 +30,60 @@ func ed(s, t []interface{}) {
 		for i := 1; i <= m; i++ {
 			if reflect.DeepEqual(s[i-1], t[j-1]) {
 				d[i][j] = d[i-1][j-1] // no op required
-				op[i-1][j-1] = ' '
 			} else {
 				del := d[i-1][j] + 1
 				add := d[i][j-1] + 1
 				rep := d[i-1][j-1] + 1
-
-				if rep <= del {
-					if rep <= add {
-						d[i][j] = rep
-						op[i-1][j-1] = 'R'
-					} else {
-						// add < sub
-						d[i][j] = add
-						op[i-1][j-1] = 'A' //
-					}
-				} else {
-					// del < sub
-					if add <= del {
-						d[i][j] = add
-						op[i-1][j-1] = 'A' // d[i][j-1]
-					} else {
-						// del < add
-						d[i][j] = del
-						op[i-1][j-1] = 'D' // [i-1][j]
-					}
-				}
+				d[i][j] = min(rep, min(add, del))
 			}
-
 		}
 	}
 
 	WriteMatrix(s, t, d, os.Stdout)
+	es := backtrace(m, n, d)
+	for _, op := range es {
+		fmt.Print(op.String(), "|")
+	}
+}
 
+type EditOperation int
+
+const (
+	Ins = iota
+	Del
+	Sub
+	Match
+)
+
+type EditScript []EditOperation
+
+type MatchFunction func(rune, rune) bool
+
+func (operation EditOperation) String() string {
+	if operation == Match {
+		return "M"
+	} else if operation == Ins {
+		return "A"
+	} else if operation == Sub {
+		return "R"
+	}
+	return "D"
+}
+
+func backtrace(i int, j int, matrix [][]int) EditScript {
+	if i > 0 && matrix[i-1][j]+1 == matrix[i][j] {
+		return append(backtrace(i-1, j, matrix), Del)
+	}
+	if j > 0 && matrix[i][j-1]+1 == matrix[i][j] {
+		return append(backtrace(i, j-1, matrix), Ins)
+	}
+	if i > 0 && j > 0 && matrix[i-1][j-1]+1 == matrix[i][j] {
+		return append(backtrace(i-1, j-1, matrix), Sub)
+	}
+	if i > 0 && j > 0 && matrix[i-1][j-1] == matrix[i][j] {
+		return append(backtrace(i-1, j-1, matrix), Match)
+	}
+	return []EditOperation{}
 }
 
 // WriteMatrix writes a visual representation of the given matrix for the given
@@ -90,12 +108,36 @@ func WriteMatrix(source []interface{}, target []interface{}, matrix [][]int, wri
 	}
 }
 
-func main() {
-	fmt.Println("aa")
+func min(x int, y int) int {
+	if y < x {
+		return y
+	}
+	return x
+}
 
+func max(a int, b int) int {
+	if b > a {
+		return b
+	}
+	return a
+}
+
+func main() {
 	s := []interface{}{"t", "a", "m", "a", "l"}
 	t := []interface{}{"k", "a", "r", "i", "m"}
 
 	ed(s, t)
+	fmt.Println("")
 
+	es := lev.EditScriptForStrings([]rune("tamal"), []rune("karim"), lev.Options{
+		InsCost: 1,
+		DelCost: 1,
+		SubCost: 1,
+		Matches: func(sourceCharacter rune, targetCharacter rune) bool {
+			return sourceCharacter == targetCharacter
+		},
+	})
+	for _, op := range es {
+		fmt.Print(op.String(), "|")
+	}
 }
