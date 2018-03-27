@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	lev "github.com/texttheater/golang-levenshtein/levenshtein"
-	"golang.org/x/tools/go/gcimporter15/testdata"
 	"io"
 	"os"
 	"reflect"
+
+	lev "github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
 // https://en.wikipedia.org/wiki/Wagner%E2%80%93Fischer_algorithm
@@ -123,13 +123,13 @@ func max(a int, b int) int {
 }
 
 func main() {
-	s := []interface{}{"t", "a", "m", "a", "l"}
-	t := []interface{}{"k", "a", "r", "i", "m"}
+	s := []interface{}{"A", "B", "C"}
+	t := []interface{}{"D"}
 
 	ed(s, t)
 	fmt.Println("")
 
-	es := lev.EditScriptForStrings([]rune("tamal"), []rune("karim"), lev.Options{
+	es := lev.EditScriptForStrings([]rune("ABC"), []rune("D"), lev.Options{
 		InsCost: 1,
 		DelCost: 1,
 		SubCost: 1,
